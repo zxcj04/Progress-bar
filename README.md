@@ -9,7 +9,7 @@
     verify_ssl = false
     name = "home"
     ```
-    - `pipenv install progress-bar`
+    - `pipenv install aclprogressbar`
 
 ## Usage
 
