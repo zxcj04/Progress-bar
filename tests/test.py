@@ -9,7 +9,10 @@ class TestProgressBar(unittest.TestCase):
     def setUpClass(cls):
         cls.total = 100
         cls.width = 30
-        cls.prefix = "Processing..."
+        cls.prefix = "Testing..."
+
+    def setUp(self):
+        print()
 
     def test_0_update_add(self):
         with ProgressBar(self.total, self.width, self.prefix) as bar:
@@ -46,3 +49,12 @@ class TestProgressBar(unittest.TestCase):
             self.assertEqual(bar.prefix, self.prefix)
             self.assertEqual(bar.width, self.width)
             self.assertEqual(bar.total, self.total)
+
+    def test_5_long_time(self):
+        with ProgressBar(self.total, self.width, self.prefix) as bar:
+            for i in range(self.total):
+                bar.update(add=1)
+                if i == 0 or i == 50:
+                    time.sleep(2)
+                else:
+                    time.sleep(0.001)

@@ -1,6 +1,6 @@
 import time
-import sys
 import shutil
+import threading
 
 
 class ProgressBar:
@@ -14,6 +14,8 @@ class ProgressBar:
             Width of the progress bar.
         prefix: str
             Prefix of the progress bar.
+        allowAutoPrint: bool
+            Whether to allow auto print the progress bar frequently.
 
     Methods:
         update(set=None, add=None):
@@ -32,19 +34,32 @@ class ProgressBar:
     """
 
     def __init__(
-        self, total: int, width: int = 30, prefix: str = "Processing..."
+        self,
+        total: int,
+        width: int = 30,
+        prefix: str = "Processing...",
+        allowAutoPrint: bool = True,
     ):
         self.total = total
         self.width = width
         self.prefix = prefix
+        self.allowAutoPrint = allowAutoPrint
         self.cnt = 0
         self.startTime = time.time()
         self.endTime = None
+        self.autoUpdateThread: threading.Thread = None
+        self.stopThread: bool = False
+        self.lock = threading.Lock()
 
     def __enter__(self):
+        if self.allowAutoPrint:
+            self.autoUpdateThread = threading.Thread(target=self.autoUpdate)
+            self.autoUpdateThread.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.autoUpdateThread is not None:
+            self.stopAutoUpdateThread()
         self.stop()
 
     def update(self, set: int = None, add: int = 0, prefix: str = None):
@@ -71,7 +86,8 @@ class ProgressBar:
             self.cnt = set
         else:
             self.cnt += add
-        self.printBar()
+        with self.lock:
+            self.printBar()
 
     def reset(
         self, total: int, width: int = 30, prefix: str = "Processing..."
@@ -97,8 +113,19 @@ class ProgressBar:
     def stop(self):
         self.endTime = time.time()
         if self.cnt < self.total:
-            print()
-            sys.stdout.flush()
+            print(flush=True)
+
+    def stopAutoUpdateThread(self):
+        self.stopThread = True
+        self.autoUpdateThread.join()
+
+    def autoUpdate(self):
+        time.sleep(0.5)
+        while not self.stopThread:
+            if self.cnt != self.total:
+                with self.lock:
+                    self.printBar()
+            time.sleep(0.5)
 
     def printBar(self):
         col, _ = shutil.get_terminal_size((80, 20))
@@ -132,8 +159,8 @@ class ProgressBar:
             " | left: {:.2f}s".format(leftTime),
             sep="",
             end=" |",
+            flush=True,
         )
-        sys.stdout.flush()
 
         if self.cnt == self.total:
             print()
@@ -150,6 +177,14 @@ if __name__ == "__main__":
         for _ in range(total):
             bar.update(add=1)
             time.sleep(0.05)
+
+    with ProgressBar(total, width, prefix) as bar:
+        for i in range(total):
+            bar.update(add=1)
+            if i == 0:
+                time.sleep(5)
+            else:
+                time.sleep(0.001)
 
     with ProgressBar(total, width, prefix) as bar:
         try:
