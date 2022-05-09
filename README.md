@@ -31,3 +31,7 @@ with ProgressBar(total=100, width=30, prefix="Processing...") as bar:
         bar.update(add=1)
         time.sleep(0.05)
 ```
+
+## Result
+
+`| Processing... |██████████████████████████████| 100% - 100 / 100 | total: 2.49s | avg: 40.15/s | left: 0.00s |`
