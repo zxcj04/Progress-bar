@@ -10,8 +10,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="",
-    author="Fan Rende",
+    author="FanRende Huang",
     package_dir={"": "src"},
-    version="0.1.2",
+    version="0.2.0",
     packages=find_packages(where="src"),
 )
