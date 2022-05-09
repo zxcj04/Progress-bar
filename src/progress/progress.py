@@ -4,7 +4,36 @@ import shutil
 
 
 class ProgressBar:
-    def __init__(self, total, width=30, prefix="Processing..."):
+    """
+    Progress bar
+
+    Attributes:
+        total: int
+            Total number of steps.
+        width: int
+            Width of the progress bar.
+        prefix: str
+            Prefix of the progress bar.
+
+    Methods:
+        update(set=None, add=None):
+            Update the progress bar.
+            If set is not None, set the progress bar to the given value.
+            If add is not None, add the given value to the progress bar.
+        reset(total, width=30, prefix="Processing..."):
+            Reset the progress bar.
+
+    Examples:
+        >>> from progress import ProgressBar
+        >>> with ProgressBar(100, 30, "Processing...") as bar:
+        ...     for i in range(100):
+        ...         bar.update(set=i)
+        ...         time.sleep(0.025)
+    """
+
+    def __init__(
+        self, total: int, width: int = 30, prefix: str = "Processing..."
+    ):
         self.total = total
         self.width = width
         self.prefix = prefix
@@ -18,15 +47,52 @@ class ProgressBar:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def update(self, add, prefix=None):
-        self.cnt += add
+    def update(self, set: int = None, add: int = 0, prefix: str = None):
+        """
+        Update the progress bar.
+        If set is not None, set the progress bar to the given value.
+        If add is not None, add the given value to the progress bar.
+
+        Args:
+            add: int
+                Add the given value to the progress bar.
+            set: int
+                Set the progress bar to the given value.
+            prefix: str
+                Set the prefix of the progress bar.
+        """
+        if add == 0 and set is None:
+            raise ValueError("add or set must be set")
         if prefix is not None:
             self.prefix = prefix
+        if set is not None:
+            if add != 0:
+                raise ValueError("set and add cannot be used at the same time")
+            self.cnt = set
+        else:
+            self.cnt += add
         self.printBar()
 
-    def setCnt(self, cnt):
-        self.cnt = cnt
-        self.printBar()
+    def reset(
+        self, total: int, width: int = 30, prefix: str = "Processing..."
+    ):
+        """
+        Reset the progress bar.
+
+        Args:
+            total: int
+                Total number of steps.
+            width: int
+                Width of the progress bar.
+            prefix: str
+                Prefix of the progress bar.
+        """
+        self.total = total
+        self.width = width
+        self.prefix = prefix
+        self.cnt = 0
+        self.startTime = time.time()
+        self.endTime = None
 
     def stop(self):
         self.endTime = time.time()
@@ -90,7 +156,7 @@ if __name__ == "__main__":
             cnt = 0
             offset = 1
             while True:
-                bar.setCnt(cnt)
+                bar.update(set=cnt)
                 cnt += offset
                 if cnt >= total - 1:
                     offset = -1
