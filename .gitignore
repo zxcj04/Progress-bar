@@ -1,0 +1,9 @@
+# Folder
+.venv
+.vscode
+build/
+dist/
+*.egg-info
+
+# File
+*.pyc
