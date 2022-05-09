@@ -12,6 +12,6 @@ setup(
     url="",
     author="FanRende Huang",
     package_dir={"": "src"},
-    version="0.2.1",
+    version="0.2.2",
     packages=find_packages(where="src"),
 )

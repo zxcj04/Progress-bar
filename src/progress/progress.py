@@ -50,11 +50,14 @@ class ProgressBar:
         self.autoUpdateThread: threading.Thread = None
         self.stopThread: bool = False
         self.lock = threading.Lock()
+        self.pastLength = 0
 
     def __enter__(self):
         if self.allowAutoPrint:
             self.autoUpdateThread = threading.Thread(target=self.autoUpdate)
             self.autoUpdateThread.start()
+        with self.lock:
+            self.printBar()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -128,7 +131,7 @@ class ProgressBar:
             time.sleep(0.5)
 
     def printBar(self):
-        col, _ = shutil.get_terminal_size((80, 20))
+        col, _ = shutil.get_terminal_size((0, 20))
 
         totalTime = time.time() - self.startTime
         try:
@@ -144,9 +147,8 @@ class ProgressBar:
 
         l = self.width * percent // 100
         r = self.width - l
-        print(
-            "\r",
-            " " * col,
+
+        barStr = (
             "\r| ",
             self.prefix,
             " |",
@@ -157,10 +159,21 @@ class ProgressBar:
             " | total: {:.2f}s".format(totalTime),
             " | avg: {:.2f}/s".format(averageTime),
             " | left: {:.2f}s".format(leftTime),
-            sep="",
-            end=" |",
-            flush=True,
+            " |",
         )
+        barStr = "".join(barStr)
+        barLen = len(barStr)
+        lastSpace = 0
+        if self.pastLength > barLen:
+            lastSpace = (
+                self.pastLength - barLen
+                if self.pastLength - barLen < col - barLen
+                else col - barLen
+            )
+
+        print(barStr, " " * lastSpace, sep="", end="", flush=True)
+
+        self.pastLength = barLen
 
         if self.cnt == self.total:
             print()

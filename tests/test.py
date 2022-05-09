@@ -29,11 +29,13 @@ class TestProgressBar(unittest.TestCase):
     def test_2_raise_value_error(self):
         with self.assertRaises(ValueError):
             with ProgressBar(self.total, self.width, self.prefix) as bar:
+                bar.update(set=self.total)
                 bar.update(set=1, add=1)
 
     def test_3_raise_value_error(self):
         with self.assertRaises(ValueError):
             with ProgressBar(self.total, self.width, self.prefix) as bar:
+                bar.update(set=self.total)
                 bar.update()
 
     def test_4_reset(self):
