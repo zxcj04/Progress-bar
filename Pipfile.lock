@@ -1,0 +1,30 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "bad36127739ba64af3eaae1c78e9b60d75e6e4fda46923d728d340c5b876de63"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.9"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            },
+            {
+                "name": "home",
+                "url": "http://192.168.100.236/pypi/simple",
+                "verify_ssl": false
+            }
+        ]
+    },
+    "default": {},
+    "develop": {
+        "aclprogressbar": {
+            "editable": true,
+            "path": "."
+        }
+    }
+}
