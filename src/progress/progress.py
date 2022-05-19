@@ -1,6 +1,8 @@
+import warnings
 import time
 import shutil
 import threading
+import unicodedata
 
 
 class ProgressBar:
@@ -12,6 +14,8 @@ class ProgressBar:
             Total number of steps.
         width: int
             Width of the progress bar.
+
+            if width == -1, the progress bar will be as long as the terminal.
         prefix: str
             Prefix of the progress bar.
         allowAutoPrint: bool
@@ -46,23 +50,24 @@ class ProgressBar:
         self.allowAutoPrint = allowAutoPrint
         self.cnt = 0
         self.startTime = time.time()
+        self.isStop: bool = False
         self.endTime = None
-        self.autoUpdateThread: threading.Thread = None
-        self.stopThread: bool = False
+        self.autoPrintThread: threading.Thread = None
+        self.isAutoPrintStop: bool = False
         self.lock = threading.Lock()
-        self.pastLength = 0
 
     def __enter__(self):
         if self.allowAutoPrint:
-            self.autoUpdateThread = threading.Thread(target=self.autoUpdate)
-            self.autoUpdateThread.start()
+            self.autoPrintThread = threading.Thread(target=self.autoPrint)
+            self.autoPrintThread.start()
         with self.lock:
             self.printBar()
+        self.startTime = time.time()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.autoUpdateThread is not None:
-            self.stopAutoUpdateThread()
+        if self.isStop:
+            return
         self.stop()
 
     def update(self, set: int = None, add: int = 0, prefix: str = None):
@@ -70,6 +75,9 @@ class ProgressBar:
         Update the progress bar.
         If set is not None, set the progress bar to the given value.
         If add is not None, add the given value to the progress bar.
+        If prefix is not None, set the prefix of the progress bar.
+
+        If counter reaches the total, the progress bar will be stopped.
 
         Args:
             add: int
@@ -79,6 +87,10 @@ class ProgressBar:
             prefix: str
                 Set the prefix of the progress bar.
         """
+        if self.isStop:
+            warnings.warn("Progress bar has been stopped, do nothing...")
+            return
+
         if add == 0 and set is None:
             raise ValueError("add or set must be set")
         if prefix is not None:
@@ -91,12 +103,15 @@ class ProgressBar:
             self.cnt += add
         with self.lock:
             self.printBar()
+        if self.cnt >= self.total:
+            self.stop()
 
-    def reset(
-        self, total: int, width: int = 30, prefix: str = "Processing..."
-    ):
+    def reset(self, total: int = None, width: int = None, prefix: str = None):
         """
         Reset the progress bar.
+        If total is None, keep the same total.
+        If width is None, keep the same width.
+        If prefix is None, keep the same prefix.
 
         Args:
             total: int
@@ -106,77 +121,106 @@ class ProgressBar:
             prefix: str
                 Prefix of the progress bar.
         """
-        self.total = total
-        self.width = width
-        self.prefix = prefix
-        self.cnt = 0
-        self.startTime = time.time()
-        self.endTime = None
+        if total is None:
+            total = self.total
+        if width is None:
+            width = self.width
+        if prefix is None:
+            prefix = self.prefix.decode("utf8")
+        self.stopAutoPrintThread()
+        self.__init__(total, width, prefix)
+        if self.allowAutoPrint:
+            self.autoPrintThread = threading.Thread(target=self.autoPrint)
+            self.autoPrintThread.start()
 
     def stop(self):
+        if self.isStop:
+            warnings.warn("Progress bar has been stopped, do nothing...")
+            return
         self.endTime = time.time()
-        if self.cnt < self.total:
-            print(flush=True)
+        self.isStop = True
+        self.stopAutoPrintThread()
+        print(flush=True)
 
-    def stopAutoUpdateThread(self):
-        self.stopThread = True
-        self.autoUpdateThread.join()
+    def stopAutoPrintThread(self):
+        if self.autoPrintThread is None:
+            return
+        self.isAutoPrintStop = True
+        self.autoPrintThread.join()
 
-    def autoUpdate(self):
+    def autoPrint(self):
         time.sleep(0.5)
-        while not self.stopThread:
+        while not self.isAutoPrintStop:
             if self.cnt != self.total:
                 with self.lock:
                     self.printBar()
             time.sleep(0.5)
 
+    @staticmethod
+    def wide_chars(s):
+        return sum(
+            unicodedata.east_asian_width(x) == "W"
+            or unicodedata.east_asian_width(x) == "A"
+            for x in s
+        )
+
     def printBar(self):
+        if self.isStop:
+            warnings.warn("Progress bar has been stopped, do nothing...")
+            return
+
         col, _ = shutil.get_terminal_size((0, 20))
 
         totalTime = time.time() - self.startTime
         try:
-            averageTime = self.cnt / (time.time() - self.startTime)
+            averageRate = self.cnt / totalTime
         except ZeroDivisionError:
-            averageTime = 0
+            averageRate = 0
         try:
-            leftTime = (self.total - self.cnt) / averageTime
+            leftTime = (self.total - self.cnt) / averageRate
         except ZeroDivisionError:
             leftTime = 0
 
         percent = int(self.cnt / self.total * 100)
 
-        l = self.width * percent // 100
-        r = self.width - l
+        barTemplate = "\r| {:s} |{:s}{:s}| {:d}% - {:d} / {:d} | TTL / ETA: {:.2f}s / {:.2f}s | AVG: {:.2f}/s |"
 
-        barStr = (
-            "\r| ",
+        if self.width == -1:
+            barStr = barTemplate.format(
+                self.prefix,
+                "",
+                "",
+                percent,
+                self.cnt,
+                self.total,
+                totalTime,
+                leftTime,
+                averageRate,
+            )
+            barLen = len(barStr) + self.wide_chars(self.prefix)
+            width = col - barLen
+        else:
+            width = self.width
+
+        l = width * percent // 100
+        r = width - l
+
+        barStr = barTemplate.format(
             self.prefix,
-            " |",
             "█" * l,
             " " * r,
-            "|",
-            f" {percent}% - {self.cnt} / {self.total}",
-            " | total: {:.2f}s".format(totalTime),
-            " | avg: {:.2f}/s".format(averageTime),
-            " | left: {:.2f}s".format(leftTime),
-            " |",
+            percent,
+            self.cnt,
+            self.total,
+            totalTime,
+            leftTime,
+            averageRate,
         )
-        barStr = "".join(barStr)
-        barLen = len(barStr)
-        lastSpace = 0
-        if self.pastLength > barLen:
-            lastSpace = (
-                self.pastLength - barLen
-                if self.pastLength - barLen < col - barLen
-                else col - barLen
-            )
+        finalStr = "{0:<{1}s}".format(
+            barStr, col - self.wide_chars(self.prefix)
+        )
 
-        print(barStr, " " * lastSpace, sep="", end="", flush=True)
-
-        self.pastLength = barLen
-
-        if self.cnt == self.total:
-            print()
+        print(finalStr, sep="", end="", flush=True)
 
 
 if __name__ == "__main__":
@@ -187,19 +231,6 @@ if __name__ == "__main__":
     print("enter progress bar")
 
     with ProgressBar(total, width, prefix) as bar:
-        for _ in range(total):
-            bar.update(add=1)
-            time.sleep(0.05)
-
-    with ProgressBar(total, width, prefix) as bar:
-        for i in range(total):
-            bar.update(add=1)
-            if i == 0:
-                time.sleep(5)
-            else:
-                time.sleep(0.001)
-
-    with ProgressBar(total, width, prefix) as bar:
         try:
             cnt = 0
             offset = 1
@@ -208,7 +239,7 @@ if __name__ == "__main__":
                 cnt += offset
                 if cnt >= total - 1:
                     offset = -1
-                if cnt <= 1:
+                if cnt <= 0:
                     offset = 1
                 time.sleep(0.01)
         except KeyboardInterrupt:

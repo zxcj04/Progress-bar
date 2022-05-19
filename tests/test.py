@@ -29,13 +29,11 @@ class TestProgressBar(unittest.TestCase):
     def test_2_raise_value_error(self):
         with self.assertRaises(ValueError):
             with ProgressBar(self.total, self.width, self.prefix) as bar:
-                bar.update(set=self.total)
                 bar.update(set=1, add=1)
 
     def test_3_raise_value_error(self):
         with self.assertRaises(ValueError):
             with ProgressBar(self.total, self.width, self.prefix) as bar:
-                bar.update(set=self.total)
                 bar.update()
 
     def test_4_reset(self):
@@ -44,13 +42,19 @@ class TestProgressBar(unittest.TestCase):
                 bar.update(add=1)
                 time.sleep(0.001)
 
-            bar.reset(self.total, self.width, self.prefix)
+            test_prefix = "Reseted..."
+
+            bar.reset(prefix=test_prefix)
 
             self.assertEqual(bar.cnt, 0)
             self.assertEqual(bar.endTime, None)
-            self.assertEqual(bar.prefix, self.prefix)
+            self.assertEqual(bar.prefix, test_prefix)
             self.assertEqual(bar.width, self.width)
             self.assertEqual(bar.total, self.total)
+
+            for _ in range(self.total):
+                bar.update(add=1)
+                time.sleep(0.001)
 
     def test_5_long_time(self):
         with ProgressBar(self.total, self.width, self.prefix) as bar:
@@ -60,3 +64,23 @@ class TestProgressBar(unittest.TestCase):
                     time.sleep(2)
                 else:
                     time.sleep(0.001)
+
+    def test_6_infinite_width(self):
+        with ProgressBar(self.total, -1, self.prefix) as bar:
+            for _ in range(self.total):
+                bar.update(add=1)
+                time.sleep(0.025)
+
+    def test_7_chinese(self):
+        prefix = "中文測試..."
+        with ProgressBar(self.total, self.width, prefix) as bar:
+            for _ in range(self.total):
+                bar.update(add=1)
+                time.sleep(0.025)
+
+    def test_8_chinese_infinite_width(self):
+        prefix = "中文測試..."
+        with ProgressBar(self.total, -1, prefix) as bar:
+            for _ in range(self.total):
+                bar.update(add=1)
+                time.sleep(0.025)
