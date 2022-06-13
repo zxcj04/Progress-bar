@@ -5,6 +5,11 @@ import threading
 import unicodedata
 
 
+LINE_UP = "\x1b[F"
+LINE_DOWN = "\x1b[E"
+LINE_CLEAR = "\x1b[2K"
+
+
 class ProgressBar:
     """
     Progress bar
@@ -57,6 +62,7 @@ class ProgressBar:
         self.lock = threading.Lock()
 
     def __enter__(self):
+        print(flush=True)
         if self.allowAutoPrint:
             self.autoPrintThread = threading.Thread(target=self.autoPrint)
             self.autoPrintThread.start()
@@ -129,6 +135,7 @@ class ProgressBar:
             prefix = self.prefix.decode("utf8")
         self.stopAutoPrintThread()
         self.__init__(total, width, prefix)
+        print(flush=True)
         if self.allowAutoPrint:
             self.autoPrintThread = threading.Thread(target=self.autoPrint)
             self.autoPrintThread.start()
@@ -140,7 +147,6 @@ class ProgressBar:
         self.endTime = time.time()
         self.isStop = True
         self.stopAutoPrintThread()
-        print(flush=True)
 
     def stopAutoPrintThread(self):
         if self.autoPrintThread is None:
@@ -164,6 +170,12 @@ class ProgressBar:
             for x in s
         )
 
+    def fallback_len(self, percent, finalLen):
+        template = "| {:s} |{:s}{:s}| {:d}% "
+        basicStr = template.format(self.prefix, "", "", percent)
+        basicStrLen = len(basicStr)
+        return finalLen - basicStrLen
+
     def printBar(self):
         if self.isStop:
             warnings.warn("Progress bar has been stopped, do nothing...")
@@ -184,6 +196,7 @@ class ProgressBar:
         percent = int(self.cnt / self.total * 100)
 
         barTemplate = "\r| {:s} |{:s}{:s}| {:d}% - {:d} / {:d} | TTL / ETA: {:.2f}s / {:.2f}s | AVG: {:.2f}/s |"
+        finalLen = col - self.wide_chars(self.prefix) + 1
 
         if self.width == -1:
             barStr = barTemplate.format(
@@ -199,6 +212,9 @@ class ProgressBar:
             )
             barLen = len(barStr) + self.wide_chars(self.prefix)
             width = col - barLen
+
+            if width <= 0:
+                width = self.fallback_len(percent, finalLen)
         else:
             width = self.width
 
@@ -216,11 +232,9 @@ class ProgressBar:
             leftTime,
             averageRate,
         )
-        finalStr = "{0:<{1}s}".format(
-            barStr, col - self.wide_chars(self.prefix)
-        )
+        finalStr = "{0:<{1}s}".format(barStr[:finalLen], finalLen)
 
-        print(finalStr, sep="", end="", flush=True)
+        print(LINE_UP, finalStr, LINE_DOWN, end="", sep="", flush=True)
 
 
 if __name__ == "__main__":
