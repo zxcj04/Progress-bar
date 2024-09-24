@@ -2,14 +2,7 @@
 
 ## Install
 - With pipenv
-    - Add private source to Pipfile
-    ```
-    [[source]]
-    url = "http://192.168.100.236/pypi/simple"
-    verify_ssl = false
-    name = "home"
-    ```
-    - `pipenv install aclprogressbar`
+    - `pipenv install mortalprogressbar`
 
 ## Usage
 

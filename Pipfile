@@ -3,11 +3,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
-[[source]]
-url = "http://192.168.100.236/pypi/simple"
-verify_ssl = false
-name = "home"
-
 [dev-packages]
 aclprogressbar = {editable = true, path = "."}
 
